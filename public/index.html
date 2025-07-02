@@ -38,30 +38,28 @@
             </h1>
         </header>
 
-        <!-- Input Form -->
-        <form id="scrape-form" class="mb-8">
-            <div class="relative">
-                <!-- MODIFIED: Increased right-padding from pr-16 to pr-20 -->
-                <input type="text" id="url-input" placeholder="Enter a URL (e.g., youtube.com)" class="w-full p-4 pr-20 bg-gray-800 border-2 border-gray-700 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition-colors">
-                <button type="submit" id="extract-button" class="absolute top-1/2 right-4 -translate-y-1/2 text-2xl text-gray-400 hover:text-cyan-400 transition-colors" title="Extract Data">
-                    <i class="bi bi-magic"></i>
+        <!-- CHANGE 1: Input Form with Button Outside -->
+        <form id="scrape-form" class="mb-4">
+            <div class="flex">
+                <input type="text" id="url-input" placeholder="Enter a URL (e.g., youtube.com)" class="w-full p-4 bg-gray-800 border-2 border-gray-700 rounded-l-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition-colors border-r-0">
+                <button type="submit" id="extract-button" class="flex-shrink-0 bg-cyan-500 hover:bg-cyan-600 text-white font-bold p-4 rounded-r-lg transition-colors" title="Extract Data">
+                    <i class="bi bi-magic text-2xl"></i>
                 </button>
             </div>
         </form>
 
-        <!-- Inside public/index.html -->
+        <!-- CHANGE 2: Message Toggle Moved to Top -->
+        <div id="message-toggle" class="min-h-[68px]"></div>
 
-<!-- Loading State Placeholder -->
-<div id="loading-state" class="text-center py-10 hidden">
-    <div class="loader mx-auto"></div>
-    <!-- NEW: Element for live logs -->
-    <p id="loading-log" class="mt-4 text-gray-400">Initializing...</p>
-</div>
+        <!-- Loading State Placeholder -->
+        <div id="loading-state" class="text-center py-10 hidden">
+            <div class="loader mx-auto"></div>
+            <p id="loading-log" class="mt-4 text-gray-400 font-mono">Initializing...</p>
+        </div>
 
         <!-- Result Box -->
         <div id="result-box" class="hidden">
             <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg">
-                <!-- Result Header -->
                 <div class="flex justify-between items-center p-4 border-b border-gray-700">
                     <h2 class="text-xl font-semibold text-green-400"><i class="bi bi-filetype-json mr-2"></i>JSON Result</h2>
                     <div class="flex items-center space-x-3 text-xl">
@@ -70,24 +68,20 @@
                         <button id="view-raw-button" class="text-gray-400 hover:text-yellow-400 transition-colors" title="View as Raw"><i class="bi bi-eye"></i></button>
                     </div>
                 </div>
-                <!-- Result Content -->
                 <div class="p-4">
                     <pre class="w-full h-96 overflow-auto bg-gray-900 p-4 rounded-md text-sm"><code id="json-output"></code></pre>
                 </div>
             </div>
         </div>
-
-        <!-- Bootstrap-style Messages -->
-        <div id="message-toggle" class="mt-4"></div>
         
-        <!-- NEW: Footer with social icons -->
+        <!-- CHANGE 3: Polished Footer Icons -->
         <footer class="mt-12">
-            <div class="flex justify-center items-center space-x-6 text-2xl">
-                 <a href="https://github.com/carljohnvillavito/ai-webscraper" target="_blank" class="text-gray-400 hover:text-white transition-colors" title="Source Code">
-                    <i class="bi bi-github"></i>
+            <div class="flex justify-center items-center space-x-6">
+                 <a href="https://github.com/YOUR_GITHUB_USERNAME/ai-web-scraper" target="_blank" class="p-3 border-2 border-gray-600 rounded-full transition-all duration-300 hover:scale-110 hover:border-white text-gray-400 hover:text-white" title="Source Code">
+                    <i class="bi bi-github text-3xl"></i>
                 </a>
-                <a href="https://facebook.com/carljohn.villavito" target="_blank" class="text-gray-400 hover:text-cyan-400 transition-colors" title="Contact Owner">
-                    <i class="bi bi-facebook"></i>
+                <a href="https://facebook.com/YOUR_FACEBOOK_USERNAME" target="_blank" class="p-3 border-2 border-gray-600 rounded-full transition-all duration-300 hover:scale-110 hover:border-cyan-400 text-gray-400 hover:text-cyan-400" title="Contact Owner">
+                    <i class="bi bi-facebook text-3xl"></i>
                 </a>
             </div>
         </footer>
