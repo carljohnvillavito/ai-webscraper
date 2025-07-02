@@ -49,11 +49,14 @@
             </div>
         </form>
 
-        <!-- Loading State Placeholder -->
-        <div id="loading-state" class="text-center py-10 hidden">
-            <div class="loader mx-auto"></div>
-            <p class="mt-4 text-gray-400">AI is analyzing the website... Please wait.</p>
-        </div>
+        <!-- Inside public/index.html -->
+
+<!-- Loading State Placeholder -->
+<div id="loading-state" class="text-center py-10 hidden">
+    <div class="loader mx-auto"></div>
+    <!-- NEW: Element for live logs -->
+    <p id="loading-log" class="mt-4 text-gray-400">Initializing...</p>
+</div>
 
         <!-- Result Box -->
         <div id="result-box" class="hidden">
