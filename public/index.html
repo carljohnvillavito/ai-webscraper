@@ -28,9 +28,11 @@
         }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-200 font-sans antialiased">
+<!-- CHANGE 1: Make the body a full-height flex column -->
+<body class="bg-gray-900 text-gray-200 font-sans antialiased min-h-screen flex flex-col">
 
-    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+    <!-- CHANGE 2: Make the main container grow to fill available space -->
+    <main class="container mx-auto p-4 md:p-8 max-w-4xl flex-grow">
         <!-- Header -->
         <header class="flex justify-between items-center mb-6">
             <h1 class="text-3xl md:text-4xl font-bold text-cyan-400">
@@ -38,7 +40,7 @@
             </h1>
         </header>
 
-        <!-- CHANGE 1: Input Form with Button Outside -->
+        <!-- Input Form -->
         <form id="scrape-form" class="mb-4">
             <div class="flex">
                 <input type="text" id="url-input" placeholder="Enter a URL (e.g., youtube.com)" class="w-full p-4 bg-gray-800 border-2 border-gray-700 rounded-l-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition-colors border-r-0">
@@ -48,7 +50,7 @@
             </div>
         </form>
 
-        <!-- CHANGE 2: Message Toggle Moved to Top -->
+        <!-- Message Toggle -->
         <div id="message-toggle" class="min-h-[68px]"></div>
 
         <!-- Loading State Placeholder -->
@@ -73,20 +75,19 @@
                 </div>
             </div>
         </div>
-        
-        <!-- CHANGE 3: Polished Footer Icons -->
-        <footer class="mt-12">
-            <div class="flex justify-center items-center space-x-6">
-                 <a href="https://github.com/YOUR_GITHUB_USERNAME/ai-web-scraper" target="_blank" class="p-3 border-2 border-gray-600 rounded-full transition-all duration-300 hover:scale-110 hover:border-white text-gray-400 hover:text-white" title="Source Code">
-                    <i class="bi bi-github text-3xl"></i>
-                </a>
-                <a href="https://facebook.com/YOUR_FACEBOOK_USERNAME" target="_blank" class="p-3 border-2 border-gray-600 rounded-full transition-all duration-300 hover:scale-110 hover:border-cyan-400 text-gray-400 hover:text-cyan-400" title="Contact Owner">
-                    <i class="bi bi-facebook text-3xl"></i>
-                </a>
-            </div>
-        </footer>
+    </main>
 
-    </div>
+    <!-- CHANGE 3: Footer is now outside the main container, at the bottom of the body -->
+    <footer class="py-8">
+        <div class="flex justify-center items-center space-x-6">
+             <a href="https://github.com/YOUR_GITHUB_USERNAME/ai-web-scraper" target="_blank" class="p-3 border-2 border-gray-700 rounded-full transition-all duration-300 hover:scale-110 hover:border-white text-gray-400 hover:text-white" title="Source Code">
+                <i class="bi bi-github text-3xl"></i>
+            </a>
+            <a href="https://facebook.com/YOUR_FACEBOOK_USERNAME" target="_blank" class="p-3 border-2 border-gray-700 rounded-full transition-all duration-300 hover:scale-110 hover:border-cyan-400 text-gray-400 hover:text-cyan-400" title="Contact Owner">
+                <i class="bi bi-facebook text-3xl"></i>
+            </a>
+        </div>
+    </footer>
 
     <script src="/js/main.js"></script>
 </body>
