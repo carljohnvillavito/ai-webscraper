@@ -1,9 +1,12 @@
 require('dotenv').config();
 const express = require('express');
-const axios = require('axios'); // We still keep axios for the AI call
+const axios = require('axios');
 const cors = require('cors');
-const puppeteer = require('puppeteer'); // The headless browser
-const cheerio = require('cheerio');     // The HTML parser
+const cheerio = require('cheerio');
+
+// --- Step 1: IMPORT THE NEW PACKAGES ---
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -13,11 +16,9 @@ app.use(cors());
 app.use(express.static('public'));
 app.use(express.json());
 
-// The ultimate hybrid scraping route
 app.get('/scrape', async (req, res) => {
     let { url } = req.query;
 
-    // Setup for Server-Sent Events (SSE)
     res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -38,18 +39,16 @@ app.get('/scrape', async (req, res) => {
         url = 'https://' + url;
     }
 
-    let browser = null; // Define browser outside the try block to access in finally
+    let browser = null;
     try {
-        // --- Stage 1: Fetch Fully Rendered HTML with Puppeteer ---
+        // --- Step 2: UPDATE THE LAUNCH CONFIGURATION ---
         sendStatus('Launching headless browser...');
         browser = await puppeteer.launch({
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                // Add this argument for Render.com compatibility
-                '--single-process', 
-                '--no-zygote'
-            ]
+            args: chromium.args,
+            defaultViewport: chromium.defaultViewport,
+            executablePath: await chromium.executablePath(),
+            headless: chromium.headless,
+            ignoreHTTPSErrors: true,
         });
 
         const page = await browser.newPage();
@@ -57,10 +56,7 @@ app.get('/scrape', async (req, res) => {
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36');
 
         sendStatus(`Navigating to ${url}...`);
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 }); // Wait until network is idle
-
-        // Optional: Wait for a specific selector if you know the content loads late
-        // await page.waitForSelector('main-content-selector', { timeout: 10000 });
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
 
         sendStatus('Page rendered. Extracting final HTML.');
         const renderedHtml = await page.content();
@@ -70,11 +66,7 @@ app.get('/scrape', async (req, res) => {
         // --- Stage 2: Clean the HTML with Cheerio ---
         sendStatus('Cleaning HTML for AI analysis...');
         const $ = cheerio.load(renderedHtml);
-
-        // Remove non-essential tags to reduce noise and token count for the AI
         $('script, style, link, svg, noscript, iframe, footer, header, nav').remove();
-        
-        // Optional: Keep only the main content area if a common selector exists
         const bodyContent = $('body').html();
         
         if (!bodyContent || bodyContent.trim().length < 100) {
@@ -103,7 +95,7 @@ ${bodyContent}
         
         sendStatus('Sending cleaned HTML to AI for final analysis...');
         
-        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`;
+        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${process.env.GEMINI_API_KEY}`;
         const geminiResponse = await axios.post(geminiApiUrl, {
             contents: [{ parts: [{ text: prompt }] }],
             safetySettings: [
@@ -132,9 +124,9 @@ ${bodyContent}
         sendStatus(errorMessage, 'error');
     } finally {
         if (browser) {
-            await browser.close(); // Ensure browser is closed even if an error occurs
+            await browser.close();
         }
-        res.end(); // Close the SSE connection
+        res.end();
     }
 });
 
