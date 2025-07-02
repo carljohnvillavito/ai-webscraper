@@ -39,9 +39,14 @@ app.get('/scrape', async (req, res) => {
 
     let browser = null;
     try {
-        sendStatus('Launching headless browser...');
+        sendStatus('Launching optimized headless browser...');
         browser = await puppeteer.launch({
-            args: chromium.args,
+            // --- OPTIMIZATION 1: Add stability flags ---
+            args: [
+                ...chromium.args,
+                '--disable-dev-shm-usage', // Recommended for Docker/Render
+                '--no-zygote',
+            ],
             defaultViewport: chromium.defaultViewport,
             executablePath: await chromium.executablePath(),
             headless: chromium.headless,
@@ -49,14 +54,21 @@ app.get('/scrape', async (req, res) => {
         });
 
         const page = await browser.newPage();
+        
+        // --- OPTIMIZATION 2: Block non-essential requests ---
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+            if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
+                req.abort();
+            } else {
+                req.continue();
+            }
+        });
+        
         await page.setViewport({ width: 1280, height: 800 });
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36');
 
         sendStatus(`Navigating to ${url}...`);
-        
-        // --- THE FIX IS HERE ---
-        // 1. Changed waitUntil to 'domcontentloaded' for faster loads.
-        // 2. Increased timeout to 60 seconds (60000 ms) for resilience.
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
         sendStatus('Page rendered. Extracting final HTML.');
@@ -64,7 +76,6 @@ app.get('/scrape', async (req, res) => {
         await browser.close();
         browser = null;
 
-        // --- Stage 2: Clean the HTML with Cheerio ---
         sendStatus('Cleaning HTML for AI analysis...');
         const $ = cheerio.load(renderedHtml);
         $('script, style, link, svg, noscript, iframe, footer, header, nav').remove();
@@ -74,7 +85,6 @@ app.get('/scrape', async (req, res) => {
              throw new Error("Could not extract meaningful content from the page body.");
         }
 
-        // --- Stage 3: AI Analysis with the "Universal Analyst" Prompt ---
         const prompt = `You are an autonomous data extraction AI. Your objective is to analyze the raw HTML of any given webpage and intelligently convert its main content into a structured JSON array.
 
 YOUR PROCESS:
@@ -125,6 +135,7 @@ ${bodyContent}
         sendStatus(errorMessage, 'error');
     } finally {
         if (browser) {
+            console.log('Ensuring browser is closed...');
             await browser.close();
         }
         res.end();
