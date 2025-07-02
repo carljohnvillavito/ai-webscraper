@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-const cheerio = require('cheerio');
+const cheerio = require('cheerio'); // We keep it, just in case we need it for minor tweaks later
 const puppeteer = require('puppeteer-core');
 const chromium = require('@sparticuz/chromium');
 
@@ -41,10 +41,9 @@ app.get('/scrape', async (req, res) => {
     try {
         sendStatus('Launching optimized headless browser...');
         browser = await puppeteer.launch({
-            // --- OPTIMIZATION 1: Add stability flags ---
             args: [
                 ...chromium.args,
-                '--disable-dev-shm-usage', // Recommended for Docker/Render
+                '--disable-dev-shm-usage',
                 '--no-zygote',
             ],
             defaultViewport: chromium.defaultViewport,
@@ -55,7 +54,6 @@ app.get('/scrape', async (req, res) => {
 
         const page = await browser.newPage();
         
-        // --- OPTIMIZATION 2: Block non-essential requests ---
         await page.setRequestInterception(true);
         page.on('request', (req) => {
             if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
@@ -71,26 +69,25 @@ app.get('/scrape', async (req, res) => {
         sendStatus(`Navigating to ${url}...`);
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-        sendStatus('Page rendered. Extracting final HTML.');
-        const renderedHtml = await page.content();
+        sendStatus('Page rendered. Extracting full HTML.');
+        const renderedHtml = await page.content(); // Get the complete rendered HTML
         await browser.close();
         browser = null;
 
-        sendStatus('Cleaning HTML for AI analysis...');
-        const $ = cheerio.load(renderedHtml);
-        $('script, style, link, svg, noscript, iframe, footer, header, nav').remove();
-        const bodyContent = $('body').html();
+        // --- THE FIX: We are NO LONGER removing script tags with Cheerio ---
+        // Instead, we are giving the full, rich HTML to the AI.
         
-        if (!bodyContent || bodyContent.trim().length < 100) {
-             throw new Error("Could not extract meaningful content from the page body.");
+        if (!renderedHtml || renderedHtml.trim().length < 100) {
+             throw new Error("Puppeteer did not return meaningful HTML content.");
         }
 
+        // --- RE-INSTATED THE SMARTEST AI PROMPT ---
         const prompt = `You are an autonomous data extraction AI. Your objective is to analyze the raw HTML of any given webpage and intelligently convert its main content into a structured JSON array.
 
 YOUR PROCESS:
-1.  **Analyze the Provided HTML Body:** The user has provided you with the pre-rendered and cleaned HTML body content. Your task is to analyze this structure.
-2.  **Identify the Primary Data Entity:** Find the main, repeating list of items on the page (e.g., a list of articles, products, videos, search results, etc.).
-3.  **Create JSON Objects:** For each repeating item you identify, create a single JSON object.
+1.  **Prioritize Script Tag Analysis:** Your first and most important strategy is to find a large JSON object embedded within a \`<script>\` tag. Modern dynamic websites (like YouTube) often preload all their data this way in variables like "ytInitialData", "window.__PRELOADED_STATE__", or similar. This is the most accurate and rich source of data. If you find it, use it as your primary source.
+2.  **Fallback to HTML Structure Analysis:** If, and only if, you cannot find a comprehensive JSON object in a script tag, then pivot to analyzing the rendered HTML structure. Identify the primary, repeating data entity on the page (e.g., a list of articles, products, videos, search results, etc.).
+3.  **Create JSON Objects:** For each repeating item you identify (whether from the script JSON or the HTML tags), create a single JSON object.
 4.  **Use Intelligent Keys:** The keys for the JSON object must be logical, camelCased, and self-descriptive, inferred directly from the data's meaning. For example, use keys like "title", "channelName", "viewCount", "videoUrl", "publishedTime".
 5.  **Extract All Relevant Data:** Extract all relevant and available information for each item (e.g., URLs, thumbnails, descriptions, prices, authors, etc.).
 
@@ -99,12 +96,12 @@ OUTPUT REQUIREMENTS:
 - Do NOT include any explanations, comments, or markdown formatting like \`\`\`json.
 - If no structured list of items can be logically extracted, return an empty array [].
 
-Analyze the following cleaned HTML body content:
+Analyze the following full HTML content:
 ---
-${bodyContent}
+${renderedHtml}
 ---`;
         
-        sendStatus('Sending cleaned HTML to AI for final analysis...');
+        sendStatus('Sending full HTML to AI for intelligent analysis...');
         
         const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${process.env.GEMINI_API_KEY}`;
         const geminiResponse = await axios.post(geminiApiUrl, {
@@ -113,7 +110,7 @@ ${bodyContent}
                 { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
                 { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
                 { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" },
             ]
         });
 
@@ -135,7 +132,6 @@ ${bodyContent}
         sendStatus(errorMessage, 'error');
     } finally {
         if (browser) {
-            console.log('Ensuring browser is closed...');
             await browser.close();
         }
         res.end();
