@@ -62,8 +62,8 @@ const prompt = `
 // ... after fetching htmlContent ...
 
 // Stage 2: AI Processing with the "Universal Analyst" Prompt
-const prompt = `
-    You are an autonomous data extraction AI. Your objective is to analyze the raw HTML of any given webpage and intelligently convert its main content into a structured JSON array.
+
+const prompt = `You are an autonomous data extraction AI. Your objective is to analyze the raw HTML of any given webpage and intelligently convert its main content into a structured JSON array.
 
     YOUR PROCESS:
     1.  First, determine the most effective strategy for this specific page. Try to locate a large JSON object embedded in a <script> tag (e.g., inside a "window.__PRELOADED_STATE__" or "ytInitialData" variable), as this is often the most accurate source for dynamic sites.
