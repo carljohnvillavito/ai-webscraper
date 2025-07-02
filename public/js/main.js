@@ -1,122 +1,146 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const urlInput = document.getElementById('urlInput');
-    const scrapeBtn = document.getElementById('scrapeBtn');
-    const loader = document.getElementById('loader');
-    const resultContainer = document.getElementById('resultContainer');
-    const jsonResult = document.getElementById('jsonResult');
-    const refreshBtn = document.getElementById('refreshBtn');
-    const downloadBtn = document.getElementById('downloadBtn');
-    const rawBtn = document.getElementById('rawBtn');
+    const scrapeForm = document.getElementById('scrape-form');
+    const urlInput = document.getElementById('url-input');
+    const extractButton = document.getElementById('extract-button');
+    const loadingState = document.getElementById('loading-state');
+    const resultBox = document.getElementById('result-box');
+    const jsonOutput = document.getElementById('json-output');
+    const downloadButton = document.getElementById('download-button');
+    const refreshButton = document.getElementById('refresh-button');
+    const viewRawButton = document.getElementById('view-raw-button');
+    const messageToggle = document.getElementById('message-toggle');
 
-    let rawJsonData = ''; // To store the raw JSON string for download/toggle
-    let isRawView = false; // To toggle between pretty and raw view
+    let currentJsonData = null;
+    let currentUrl = '';
+    let isRawView = false;
 
-    const handleScrape = async () => {
+    // Main function to handle the scraping process
+    const handleScrape = async (event) => {
+        if (event) event.preventDefault();
+        
         const url = urlInput.value.trim();
         if (!url) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Oops...',
-                text: 'Please enter a URL to scrape!',
-                background: '#1E293B',
-                color: '#E2E8F0'
-            });
+            showToast('error', 'Please enter a URL.');
             return;
         }
+        currentUrl = url;
 
-        // --- UI State: Start Loading ---
-        scrapeBtn.disabled = true;
-        scrapeBtn.innerHTML = `<i class="bi bi-hourglass-split"></i>`;
-        urlInput.disabled = true;
-        loader.classList.remove('hidden');
-        resultContainer.classList.add('hidden');
-        jsonResult.innerHTML = '';
+        // --- UI Updates: Show Loading State ---
+        resultBox.classList.add('hidden');
+        loadingState.classList.remove('hidden');
+        extractButton.disabled = true;
+        extractButton.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+        messageToggle.innerHTML = ''; // Clear previous messages
 
         try {
             const response = await fetch(`/scrape?url=${encodeURIComponent(url)}`);
-            const data = await response.json();
             
-            if (!response.ok || data.success === false) {
-                 throw new Error(data.message || 'Failed to get a valid response from the server.');
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to fetch data from the server.');
             }
 
-            // The server now sends the JSON directly
-            rawJsonData = JSON.stringify(data, null, 2); // Pretty print for initial display
+            const data = await response.json();
+            currentJsonData = data;
+            isRawView = false; // Reset to formatted view
+
+            // --- UI Updates: Show Success State ---
+            displayJson(currentJsonData);
+            loadingState.classList.add('hidden');
+            resultBox.classList.remove('hidden');
+            showBootstrapMessage('success', `<strong>Success!</strong> Successfully extracted data from ${currentUrl}.`);
             
-            // --- UI State: Show Success ---
-            displayJson(rawJsonData); // Display the pretty-printed JSON
-            resultContainer.classList.remove('hidden');
-
         } catch (error) {
+            // --- UI Updates: Show Error State ---
             console.error('Scraping failed:', error);
-            Swal.fire({
-                icon: 'error',
-                title: 'Scraping Failed',
-                text: error.message,
-                background: '#1E293B',
-                color: '#E2E8F0'
-            });
+            loadingState.classList.add('hidden');
+            showToast('error', error.message);
+            showBootstrapMessage('danger', `<strong>Error!</strong> ${error.message}`);
         } finally {
-            // --- UI State: Stop Loading ---
-            loader.classList.add('hidden');
-            scrapeBtn.disabled = false;
-            scrapeBtn.innerHTML = `<i class="bi bi-magic text-xl"></i><span class="ml-2 hidden md:inline">Extract</span>`;
-            urlInput.disabled = false;
+            // --- UI Updates: Reset Button ---
+            extractButton.disabled = false;
+            extractButton.innerHTML = '<i class="bi bi-magic"></i>';
+        }
+    };
+    
+    // Attach event listener to the form
+    scrapeForm.addEventListener('submit', handleScrape);
+
+    // --- Helper Functions for UI ---
+
+    // Display JSON in the code block
+    const displayJson = (data, raw = false) => {
+        if (raw) {
+            jsonOutput.textContent = JSON.stringify(data);
+        } else {
+            jsonOutput.textContent = JSON.stringify(data, null, 2); // Pretty print
         }
     };
 
-    const displayJson = (jsonData) => {
-        const pre = document.createElement('pre');
-        const code = document.createElement('code');
-        code.textContent = jsonData;
-        pre.appendChild(code);
-        jsonResult.innerHTML = ''; // Clear previous content
-        jsonResult.appendChild(pre);
-        isRawView = false;
-        rawBtn.innerHTML = '<i class="bi bi-file-earmark-code"></i>';
-        rawBtn.title = 'View as Raw';
+    // Show SweetAlert2 toast messages
+    const showToast = (icon, title) => {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: icon,
+            title: title,
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            background: '#1f2937', // bg-gray-800
+            color: '#e5e7eb' // text-gray-200
+        });
     };
 
-    const displayRaw = (jsonData) => {
-        const textArea = document.createElement('textarea');
-        textArea.className = 'w-full h-full bg-slate-900 text-slate-300 border-0 focus:ring-0 p-4 rounded-md';
-        textArea.style.height = '60vh';
-        textArea.textContent = JSON.stringify(JSON.parse(jsonData)); // Un-prettify for raw view
-        jsonResult.innerHTML = '';
-        jsonResult.appendChild(textArea);
-        isRawView = true;
-        rawBtn.innerHTML = '<i class="bi bi-file-earmark-text"></i>';
-        rawBtn.title = 'View as Pretty';
+    // Show Bootstrap-style alert messages
+    const showBootstrapMessage = (type, message) => {
+        const alertClass = type === 'success' ? 'bg-green-900 border-green-500 text-green-300' : 'bg-red-900 border-red-500 text-red-300';
+        messageToggle.innerHTML = `
+            <div class="${alertClass} border-l-4 p-4 rounded-md" role="alert">
+                <p>${message}</p>
+            </div>
+        `;
     };
 
-    scrapeBtn.addEventListener('click', handleScrape);
-    urlInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            handleScrape();
-        }
-    });
+    // --- Event Listeners for Result Box Buttons ---
 
-    refreshBtn.addEventListener('click', handleScrape);
-
-    downloadBtn.addEventListener('click', () => {
-        if (!rawJsonData) return;
-        const blob = new Blob([rawJsonData], { type: 'application/json' });
+    // Download JSON button
+    downloadButton.addEventListener('click', () => {
+        if (!currentJsonData) return;
+        const dataStr = JSON.stringify(currentJsonData, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'scraped_data.json';
+        a.download = `${currentUrl.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "").split('/')[0]}_data.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        showToast('success', 'JSON file download started.');
     });
 
-    rawBtn.addEventListener('click', () => {
-        if (!rawJsonData) return;
+    // Refresh button
+    refreshButton.addEventListener('click', () => {
+        if (!currentUrl) return;
+        showToast('info', 'Refreshing data...');
+        handleScrape(); // Re-run the scrape for the current URL
+    });
+
+    // View Raw/Formatted button
+    viewRawButton.addEventListener('click', () => {
+        if (!currentJsonData) return;
+        isRawView = !isRawView;
+        displayJson(currentJsonData, isRawView);
         if (isRawView) {
-            displayJson(rawJsonData);
+            viewRawButton.innerHTML = '<i class="bi bi-eye-slash"></i>';
+            viewRawButton.title = "View as Formatted";
+            showToast('info', 'Switched to Raw View.');
         } else {
-            displayRaw(rawJsonData);
+            viewRawButton.innerHTML = '<i class="bi bi-eye"></i>';
+            viewRawButton.title = "View as Raw";
+            showToast('info', 'Switched to Formatted View.');
         }
     });
+
 });
