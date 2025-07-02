@@ -1,23 +1,25 @@
 {
   "name": "ai-web-scraper",
   "version": "1.0.0",
-  "description": "",
+  "description": "An AI web scraping tool using Node.js and Google Gemini.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js",
-    "css": "tailwindcss -i ./public/css/input.css -o ./public/css/style.css --watch"
+    "dev": "node --watch server.js"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "ai",
+    "web scraping",
+    "nodejs",
+    "express",
+    "gemini"
+  ],
+  "author": "carl",
   "license": "ISC",
   "dependencies": {
     "axios": "^1.6.8",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2"
-  },
-  "devDependencies": {
-    "tailwindcss": "^3.4.3"
   }
 }
