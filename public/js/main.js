@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const urlInput = document.getElementById('url-input');
     const extractButton = document.getElementById('extract-button');
     const loadingState = document.getElementById('loading-state');
+    const loadingLog = document.getElementById('loading-log'); // <-- Get the new log element
     const resultBox = document.getElementById('result-box');
     const jsonOutput = document.getElementById('json-output');
     const downloadButton = document.getElementById('download-button');
@@ -13,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentJsonData = null;
     let currentUrl = '';
     let isRawView = false;
+    let eventSource = null; // To hold our connection
 
     // Main function to handle the scraping process
     const handleScrape = async (event) => {
@@ -23,61 +25,84 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('error', 'Please enter a URL.');
             return;
         }
+
+        // Close any existing connection
+        if (eventSource) {
+            eventSource.close();
+        }
+        
         currentUrl = url;
 
         // --- UI Updates: Show Loading State ---
         resultBox.classList.add('hidden');
         loadingState.classList.remove('hidden');
+        loadingLog.textContent = 'Initializing...'; // Reset log
         extractButton.disabled = true;
         extractButton.innerHTML = '<i class="bi bi-hourglass-split"></i>';
-        messageToggle.innerHTML = ''; // Clear previous messages
+        messageToggle.innerHTML = '';
 
-        try {
-            const response = await fetch(`/scrape?url=${encodeURIComponent(url)}`);
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to fetch data from the server.');
-            }
+        // --- Start Server-Sent Events (SSE) Connection ---
+        eventSource = new EventSource(`/scrape?url=${encodeURIComponent(url)}`);
 
-            const data = await response.json();
-            currentJsonData = data;
+        // Listener for status messages
+        eventSource.addEventListener('status', (e) => {
+            const data = JSON.parse(e.data);
+            console.log('Status Update:', data.message);
+            loadingLog.textContent = data.message;
+        });
+
+        // Listener for the final JSON result
+        eventSource.addEventListener('result', (e) => {
+            currentJsonData = JSON.parse(e.data);
             isRawView = false; // Reset to formatted view
 
-            // --- UI Updates: Show Success State ---
-            displayJson(currentJsonData);
+            displayJson(currentJsonD ata);
             loadingState.classList.add('hidden');
             resultBox.classList.remove('hidden');
             showBootstrapMessage('success', `<strong>Success!</strong> Successfully extracted data from ${currentUrl}.`);
             
-        } catch (error) {
-            // --- UI Updates: Show Error State ---
-            console.error('Scraping failed:', error);
+            eventSource.close(); // We're done, close connection
+            resetButton();
+        });
+
+        // Listener for any errors from the server stream
+        eventSource.addEventListener('error', (e) => {
+            // Check if the event is a custom error message from our server
+            if (e.data) {
+                const errorData = JSON.parse(e.data);
+                console.error('Server-side error:', errorData.message);
+                showToast('error', errorData.message);
+                showBootstrapMessage('danger', `<strong>Error!</strong> ${errorData.message}`);
+            } else {
+                 // This is a generic connection error
+                 console.error('Connection to stream failed.');
+                 showToast('error', 'Could not connect to the server.');
+                 showBootstrapMessage('danger', `<strong>Error!</strong> Connection failed.`);
+            }
+
             loadingState.classList.add('hidden');
-            showToast('error', error.message);
-            showBootstrapMessage('danger', `<strong>Error!</strong> ${error.message}`);
-        } finally {
-            // --- UI Updates: Reset Button ---
-            extractButton.disabled = false;
-            extractButton.innerHTML = '<i class="bi bi-magic"></i>';
-        }
+            eventSource.close();
+            resetButton();
+        });
     };
     
-    // Attach event listener to the form
     scrapeForm.addEventListener('submit', handleScrape);
 
-    // --- Helper Functions for UI ---
+    const resetButton = () => {
+        extractButton.disabled = false;
+        extractButton.innerHTML = '<i class="bi bi-magic"></i>';
+    };
 
-    // Display JSON in the code block
+    // --- Helper Functions (most are the same) ---
+
     const displayJson = (data, raw = false) => {
         if (raw) {
             jsonOutput.textContent = JSON.stringify(data);
         } else {
-            jsonOutput.textContent = JSON.stringify(data, null, 2); // Pretty print
+            jsonOutput.textContent = JSON.stringify(data, null, 2);
         }
     };
 
-    // Show SweetAlert2 toast messages
     const showToast = (icon, title) => {
         Swal.fire({
             toast: true,
@@ -87,12 +112,11 @@ document.addEventListener('DOMContentLoaded', () => {
             showConfirmButton: false,
             timer: 3000,
             timerProgressBar: true,
-            background: '#1f2937', // bg-gray-800
-            color: '#e5e7eb' // text-gray-200
+            background: '#1f2937',
+            color: '#e5e7eb'
         });
     };
 
-    // Show Bootstrap-style alert messages
     const showBootstrapMessage = (type, message) => {
         const alertClass = type === 'success' ? 'bg-green-900 border-green-500 text-green-300' : 'bg-red-900 border-red-500 text-red-300';
         messageToggle.innerHTML = `
@@ -102,9 +126,6 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     };
 
-    // --- Event Listeners for Result Box Buttons ---
-
-    // Download JSON button
     downloadButton.addEventListener('click', () => {
         if (!currentJsonData) return;
         const dataStr = JSON.stringify(currentJsonData, null, 2);
@@ -120,14 +141,13 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast('success', 'JSON file download started.');
     });
 
-    // Refresh button
     refreshButton.addEventListener('click', () => {
         if (!currentUrl) return;
         showToast('info', 'Refreshing data...');
-        handleScrape(); // Re-run the scrape for the current URL
+        handleScrape();
     });
 
-    // View Raw/Formatted button
+
     viewRawButton.addEventListener('click', () => {
         if (!currentJsonData) return;
         isRawView = !isRawView;
