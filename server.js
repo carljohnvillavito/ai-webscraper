@@ -51,23 +51,33 @@ app.get('/scrape', async (req, res) => {
 
         // Stage 2: AI Processing with the "Surgical Strike" Prompt
         // This new prompt is highly specific for dynamic sites.
-        const prompt = `
-            You are a highly specialized web scraping AI. Your task is to analyze the provided raw HTML source code of a web page and extract a list of its primary content items (like videos, articles, products) into a structured JSON array.
+        // Inside the app.get('/scrape', ...) route in server.js
 
-            CRITICAL INSTRUCTION: Do NOT just parse the visible HTML tags. Modern websites load data via JavaScript. Your primary strategy must be to find a large JSON object embedded within a <script> tag. This data is often assigned to a JavaScript variable, for example: "var ytInitialData = {...};" or "window.__PRELOADED_STATE__ = {...}". This is the most reliable source.
+// ... after fetching htmlContent ...
 
-            Search the ENTIRE HTML for a <script> tag containing a significant JSON structure that holds the page's main data. Parse that JSON to extract the relevant items.
+// Stage 2: AI Processing with the "Master Prompt"
+const prompt = `
+    You are a master web scraping AI, capable of handling both modern dynamic sites and classic static sites. Your goal is to analyze the provided HTML and extract a list of its primary content items (like videos, articles, products) into a structured JSON array.
 
-            If you find a list of videos, extract fields like: "title", "videoId", "thumbnailUrl", "channelName", "viewCount", "publishedTimeText", and "videoUrl".
-            
-            Your response MUST be ONLY the JSON array data, without any surrounding text, explanations, or markdown formatting like \`\`\`json.
-            If you absolutely cannot find a pre-loaded data script or any other structured data, return an empty array [].
+    Your strategy should be a two-step process:
 
-            Here is the complete HTML source code:
-            ---
-            ${htmlContent}
-            ---
-        `;
+    1.  **Primary Strategy (for Dynamic Sites):** First, search the ENTIRE HTML for a large JSON object embedded in a <script> tag. This data is often assigned to a variable like "ytInitialData" or "window.__PRELOADED_STATE__". If you find this, it is the most reliable source of data. Prioritize parsing it.
+
+    2.  **Fallback Strategy (for Static Sites):** If you CANNOT find a usable pre-loaded data script, then switch to analyzing the visible HTML content. Identify the main repeating elements (like table rows <tr> for articles, or <div>s for products) and extract their key information (title, url, score, author, etc.).
+
+    For example, if scraping a video site, extract: "title", "videoId", "channelName", "viewCount", "videoUrl".
+    If scraping a news site like Hacker News, extract: "rank", "title", "url", "score", "author", "commentCount".
+
+    Your final output MUST be ONLY the JSON array data. Do not include any surrounding text, explanations, or markdown formatting like \`\`\`json.
+    If you cannot find any structured data using either strategy, return an empty array [].
+
+    Here is the complete HTML source code:
+    ---
+    ${htmlContent}
+    ---
+`;
+
+// ... the rest of the file stays the same ...
         
         sendStatus('Sending full HTML to AI for surgical analysis...');
         
