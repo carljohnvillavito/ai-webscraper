@@ -57,21 +57,27 @@ app.get('/scrape', async (req, res) => {
 
 // Stage 2: AI Processing with the "Master Prompt"
 const prompt = `
-    You are a master web scraping AI, capable of handling both modern dynamic sites and classic static sites. Your goal is to analyze the provided HTML and extract a list of its primary content items (like videos, articles, products) into a structured JSON array.
+// Inside the app.get('/scrape', ...) route in server.js
 
-    Your strategy should be a two-step process:
+// ... after fetching htmlContent ...
 
-    1.  **Primary Strategy (for Dynamic Sites):** First, search the ENTIRE HTML for a large JSON object embedded in a <script> tag. This data is often assigned to a variable like "ytInitialData" or "window.__PRELOADED_STATE__". If you find this, it is the most reliable source of data. Prioritize parsing it.
+// Stage 2: AI Processing with the "Universal Analyst" Prompt
+const prompt = `
+    You are an autonomous data extraction AI. Your objective is to analyze the raw HTML of any given webpage and intelligently convert its main content into a structured JSON array.
 
-    2.  **Fallback Strategy (for Static Sites):** If you CANNOT find a usable pre-loaded data script, then switch to analyzing the visible HTML content. Identify the main repeating elements (like table rows <tr> for articles, or <div>s for products) and extract their key information (title, url, score, author, etc.).
+    YOUR PROCESS:
+    1.  First, determine the most effective strategy for this specific page. Try to locate a large JSON object embedded in a <script> tag (e.g., inside a "window.__PRELOADED_STATE__" or "ytInitialData" variable), as this is often the most accurate source for dynamic sites.
+    2.  If a pre-loaded data script is not found, pivot to analyzing the rendered HTML structure. Identify the primary, repeating data entity on the page (e.g., a list of articles, products, videos, search results, etc.).
+    3.  For each repeating item you identify, create a JSON object.
+    4.  The keys for the JSON object should be logical and self-descriptive, inferred directly from the data's meaning. For example, if you see a product name, use a key like "productName" or "title". If you see a price, use "price". If you see a link, use "url". Do not use generic keys like "item1" or "value2".
+    5.  Extract all relevant and available information for each item.
 
-    For example, if scraping a video site, extract: "title", "videoId", "channelName", "viewCount", "videoUrl".
-    If scraping a news site like Hacker News, extract: "rank", "title", "url", "score", "author", "commentCount".
+    OUTPUT REQUIREMENTS:
+    - Your entire response MUST be the final JSON array.
+    - Do NOT include any explanations, comments, or markdown formatting like \`\`\`json.
+    - If no structured list of items can be logically extracted from the page, return an empty array [].
 
-    Your final output MUST be ONLY the JSON array data. Do not include any surrounding text, explanations, or markdown formatting like \`\`\`json.
-    If you cannot find any structured data using either strategy, return an empty array [].
-
-    Here is the complete HTML source code:
+    Analyze the following HTML content:
     ---
     ${htmlContent}
     ---
