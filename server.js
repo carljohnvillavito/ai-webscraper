@@ -3,8 +3,6 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const cheerio = require('cheerio');
-
-// --- Step 1: IMPORT THE NEW PACKAGES ---
 const puppeteer = require('puppeteer-core');
 const chromium = require('@sparticuz/chromium');
 
@@ -41,7 +39,6 @@ app.get('/scrape', async (req, res) => {
 
     let browser = null;
     try {
-        // --- Step 2: UPDATE THE LAUNCH CONFIGURATION ---
         sendStatus('Launching headless browser...');
         browser = await puppeteer.launch({
             args: chromium.args,
@@ -56,7 +53,11 @@ app.get('/scrape', async (req, res) => {
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36');
 
         sendStatus(`Navigating to ${url}...`);
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+        
+        // --- THE FIX IS HERE ---
+        // 1. Changed waitUntil to 'domcontentloaded' for faster loads.
+        // 2. Increased timeout to 60 seconds (60000 ms) for resilience.
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
         sendStatus('Page rendered. Extracting final HTML.');
         const renderedHtml = await page.content();
@@ -95,7 +96,7 @@ ${bodyContent}
         
         sendStatus('Sending cleaned HTML to AI for final analysis...');
         
-        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${process.env.GEMINI_API_KEY}`;
+        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`;
         const geminiResponse = await axios.post(geminiApiUrl, {
             contents: [{ parts: [{ text: prompt }] }],
             safetySettings: [
