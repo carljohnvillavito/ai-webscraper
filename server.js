@@ -1,122 +1,97 @@
-// server.js - Final version with paste.gg workaround
-
+require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
-const cheerio = require('cheerio');
-const cors = require('cors');
-const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// Serve static files from the 'public' directory
 app.use(express.static('public'));
 
 app.get('/scrape', async (req, res) => {
     let { url } = req.query;
 
     if (!url) {
-        return res.status(400).json({ error: 'URL parameter is required.' });
+        return res.status(400).json({ success: false, message: 'URL parameter is required.' });
     }
 
-    if (!/^(https?:\/\/)/i.test(url)) {
-        url = 'https://' + url;
+    // Prepend http:// if no protocol is specified
+    if (!/^https?:\/\//i.test(url)) {
+        url = 'http://' + url;
     }
 
-    let htmlContent;
     try {
-        // Step 1: Fetch the HTML from the target URL
+        // 1. Fetch the HTML content from the user-provided URL
         console.log(`Fetching HTML from: ${url}`);
         const response = await axios.get(url, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             }
         });
-        htmlContent = response.data;
-    } catch (error) {
-        console.error(`Error fetching target URL ${url}:`, error.message);
-        return res.status(500).json({ error: `Failed to fetch content from the target URL. It may be down or blocking requests.` });
-    }
+        const htmlContent = response.data;
 
-    try {
-        // Step 2: Clean the HTML
-        const $ = cheerio.load(htmlContent);
-        $('script, style, noscript, svg, footer, header, nav').remove();
-        const truncatedHtml = $('body').html().substring(0, 20000); // Increased limit for pastebin
-
-        // --- WORKAROUND STEP 3: Upload HTML to a pastebin service ---
-        console.log('Uploading cleaned HTML to paste.gg...');
-        const pasteResponse = await axios.post('https://api.paste.gg/v1/pastes', {
-            // No name or description needed, just the content
-            files: [{
-                name: 'scrape.html', // Optional name
-                content: {
-                    format: 'text',
-                    value: truncatedHtml
-                }
-            }]
-        }, {
-            headers: { 'Content-Type': 'application/json' }
-        });
-
-        // Check if paste was created successfully
-        if (pasteResponse.data.status !== 'success' || !pasteResponse.data.result) {
-            throw new Error('Failed to upload HTML to paste.gg');
-        }
-
-        const pasteId = pasteResponse.data.result.id;
-        const rawPasteUrl = `https://paste.gg/p/anonymous/${pasteId}/raw`;
-        console.log(`HTML uploaded successfully. Raw URL: ${rawPasteUrl}`);
-        
-        // --- WORKAROUND STEP 4: Create a new, short prompt for the AI ---
+        // 2. Prepare the prompt for the AI
+        // We refine the prompt to be more specific and get better results.
         const prompt = `
-            You are an expert data extraction AI. Your task is to fetch the HTML source code from the following URL: ${rawPasteUrl}. After fetching it, identify the main, repeating data elements (like a list of videos) and convert these elements into a structured JSON array. The final output must be ONLY the JSON array itself, without any extra text or explanations.
-
-            For example, for a YouTube page, the desired output format is:
-            [{"video_title": "...", "channel_name": "...", "views": "...", "video_url": "..."}, ...]
+            You are an expert data extraction AI. Your task is to analyze the following HTML content and extract the primary, repeating data items into a structured JSON array.
+            
+            For a page listing products, extract products. For a page like YouTube, extract videos. For a news site, extract articles.
+            
+            Based on the content, create a JSON object for each item with clear and relevant fields like "title", "link", "description", "imageUrl", "price", "author", etc.
+            
+            IMPORTANT: Your entire response must be ONLY the raw JSON array. Do not include any explanations, comments, or markdown formatting like \`\`\`json.
+            
+            Here is the HTML content:
+            \`\`\`html
+            ${htmlContent.substring(0, 30000)} 
+            \`\`\`
         `;
-        
-        // Step 5: Call the AI API using a GET request (as originally intended)
-        const aiApiKey = '2f3f98fc-485a-457c-877f-13b8b471f484';
-        const uid = crypto.randomUUID();
-        const aiApiUrl = `https://kaiz-apis.gleeze.com/api/gpt-4o-pro`;
+        // We substring the HTML to avoid exceeding token limits for very large pages.
 
-        console.log('Sending short prompt to AI via GET request...');
-        const aiResponse = await axios.get(aiApiUrl, {
-            params: {
-                ask: prompt,
-                uid: uid,
-                imageUrl: '',
-                apikey: aiApiKey
+        console.log('Sending prompt to AI...');
+
+        // 3. Call the Gemini API
+        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+        
+        const aiResponse = await axios.post(geminiApiUrl, {
+            contents: [{
+                parts: [{
+                    text: prompt
+                }]
+            }],
+            generationConfig: {
+                // Ensure the output is JSON
+                responseMimeType: "application/json",
             }
         });
 
-        // Step 6: Parse the AI's response
-        const responseString = aiResponse.data.response;
-        console.log('AI Raw Response:', responseString);
+        // 4. Extract and clean the JSON from the AI's response
+        let jsonText = aiResponse.data.candidates[0].content.parts[0].text;
         
-        const cleanedResponse = responseString.replace(/^```json\n|```$/g, '').trim();
-        const jsonResult = JSON.parse(cleanedResponse);
+        console.log('AI response received.');
+        
+        // The AI should now be correctly outputting JSON due to responseMimeType,
+        // but we keep this as a fallback.
+        jsonText = jsonText.replace(/^```json\s*/, '').replace(/```$/, '');
 
-        res.status(200).json(jsonResult);
+        // 5. Send the structured JSON back to the client
+        res.setHeader('Content-Type', 'application/json');
+        res.send(jsonText); // Send the raw JSON string
 
     } catch (error) {
-        console.error('An error occurred during processing:', error.message);
+        console.error('Error during scraping process:', error.message);
+        let errorMessage = 'An error occurred during the scraping process.';
         if (error.response) {
-            return res.status(500).json({ 
-                error: `An API returned an error: ${error.response.status} ${error.response.statusText}`,
-                rawResponse: error.response.data
-            });
+            // Error from axios request (to target URL or AI)
+            console.error('Error data:', error.response.data);
+            console.error('Error status:', error.response.status);
+            errorMessage = error.response.data.error?.message || `Failed to fetch or process the URL. Status: ${error.response.status}`;
         }
-        return res.status(500).json({ 
-            error: 'An unexpected error occurred.',
-            details: error.message
-        });
+        res.status(500).json({ success: false, message: errorMessage });
     }
 });
 
 app.listen(PORT, () => {
-    console.log(`Server is running on http://127.0.0.1:${PORT}`);
+    console.log(`Server is running on http://localhost:${PORT}`);
 });
