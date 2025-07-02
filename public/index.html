@@ -36,20 +36,13 @@
             <h1 class="text-3xl md:text-4xl font-bold text-cyan-400">
                 <i class="bi bi-robot mr-2"></i>AI Web Scraper
             </h1>
-            <div class="flex items-center space-x-4 text-xl">
-                <a href="https://github.com/YOUR_GITHUB_USERNAME/ai-web-scraper" target="_blank" class="text-gray-400 hover:text-white transition-colors" title="Source Code">
-                    <i class="bi bi-github"></i>
-                </a>
-                <a href="https://facebook.com/YOUR_FACEBOOK_USERNAME" target="_blank" class="text-gray-400 hover:text-cyan-400 transition-colors" title="Contact Owner">
-                    <i class="bi bi-facebook"></i>
-                </a>
-            </div>
         </header>
 
         <!-- Input Form -->
         <form id="scrape-form" class="mb-8">
             <div class="relative">
-                <input type="text" id="url-input" placeholder="Enter a URL (e.g., youtube.com, news.ycombinator.com)" class="w-full p-4 pr-20 bg-gray-800 border-2 border-gray-700 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition-colors">
+                <!-- MODIFIED: Increased right-padding from pr-16 to pr-20 -->
+                <input type="text" id="url-input" placeholder="Enter a URL (e.g., youtube.com)" class="w-full p-4 pr-20 bg-gray-800 border-2 border-gray-700 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition-colors">
                 <button type="submit" id="extract-button" class="absolute top-1/2 right-4 -translate-y-1/2 text-2xl text-gray-400 hover:text-cyan-400 transition-colors" title="Extract Data">
                     <i class="bi bi-magic"></i>
                 </button>
@@ -83,6 +76,18 @@
 
         <!-- Bootstrap-style Messages -->
         <div id="message-toggle" class="mt-4"></div>
+        
+        <!-- NEW: Footer with social icons -->
+        <footer class="mt-12">
+            <div class="flex justify-center items-center space-x-6 text-2xl">
+                 <a href="https://github.com/carljohnvillavito/ai-webscraper" target="_blank" class="text-gray-400 hover:text-white transition-colors" title="Source Code">
+                    <i class="bi bi-github"></i>
+                </a>
+                <a href="https://facebook.com/carljohn.villavito" target="_blank" class="text-gray-400 hover:text-cyan-400 transition-colors" title="Contact Owner">
+                    <i class="bi bi-facebook"></i>
+                </a>
+            </div>
+        </footer>
 
     </div>
 
