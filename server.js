@@ -38,23 +38,34 @@ app.get('/scrape', async (req, res) => {
 
         // Step 2: Prepare the prompt for the Gemini AI
         // We give it clear instructions and a role.
-        const prompt = `
-            You are an expert web scraping AI. Your task is to analyze the provided HTML source code and extract meaningful, structured data from it into a JSON format.
-            The user wants to scrape the main content of the page.
-            Based on the content of this page, identify the key repeating elements (like products, articles, videos, listings, etc.) and extract their main attributes.
+        // Inside the app.get('/scrape', ...) route in server.js
 
-            For example, if it's a list of videos, extract title, channel, views, and URL for each.
-            If it's an e-commerce site, extract product name, price, and image URL.
+// ... after fetching htmlContent ...
 
-            Your response MUST be ONLY the JSON data, without any explanations, introductory text, or markdown formatting like \`\`\`json.
-            If you cannot find any structured data, return an empty array [].
+// Step 2: Prepare the prompt for the Gemini AI
+// NEW, SMARTER PROMPT
+const prompt = `
+    You are an expert web scraping AI. Your task is to analyze the provided HTML source code and extract meaningful, structured data into a JSON format.
+    The user wants to scrape the main content of the page.
 
-            Here is the HTML source code:
-            ---
-            ${htmlContent}
-            ---
-        `;
+    IMPORTANT: Modern websites often load data with JavaScript. Look for a large JSON object embedded within a <script> tag, especially one that looks like initial page data or state. This is often the most reliable source of data.
 
+    If you find such a JSON object inside a script, prioritize extracting data from it.
+    If not, analyze the HTML for key repeating elements (like a list of products, articles, videos, or listings) and extract their main attributes.
+
+    For example, for a list of videos, extract title, channel, views, and URL for each.
+    For an e-commerce site, extract product name, price, and image URL.
+
+    Your response MUST be ONLY the JSON data, without any explanations, introductory text, or markdown formatting like \`\`\`json.
+    If you cannot find any structured data in either the script tags or the HTML body, return an empty array [].
+
+    Here is the HTML source code:
+    ---
+    ${htmlContent}
+    ---
+`;
+
+// ... the rest of the file stays the same ...
         // Step 3: Call the Google Gemini API
         console.log('Sending data to Gemini AI...');
         const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`;
