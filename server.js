@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-const cheerio = require('cheerio'); // <-- Import cheerio
+// Cheerio is no longer needed and has been removed.
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -12,18 +12,17 @@ app.use(cors());
 app.use(express.static('public'));
 app.use(express.json());
 
-// --- The NEW Streaming Scrape Route ---
+// The final, robust scraping route
 app.get('/scrape', async (req, res) => {
     let { url } = req.query;
 
-    // --- Setup for Server-Sent Events (SSE) ---
+    // Setup for Server-Sent Events (SSE)
     res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
     });
 
-    // Helper function to send status updates to the client
     const sendStatus = (statusMessage, event = 'status') => {
         const sseFormattedMessage = `event: ${event}\ndata: ${JSON.stringify({ message: statusMessage })}\n\n`;
         res.write(sseFormattedMessage);
@@ -39,7 +38,7 @@ app.get('/scrape', async (req, res) => {
     }
 
     try {
-        // --- Stage 1: Fetching HTML ---
+        // Stage 1: Fetching FULL HTML
         sendStatus(`Connecting to ${url}...`);
         const response = await axios.get(url, {
             headers: {
@@ -47,35 +46,30 @@ app.get('/scrape', async (req, res) => {
                 'Accept-Language': 'en-US,en;q=0.9',
             },
         });
-        const htmlContent = response.data;
-        sendStatus('HTML content received successfully.');
+        const htmlContent = response.data; // We are using the FULL HTML content
+        sendStatus('Full HTML page received successfully.');
 
-        // --- Stage 2: Parsing with Cheerio ---
-        sendStatus('Parsing HTML content to isolate body...');
-        const $ = cheerio.load(htmlContent);
-        const bodyContent = $('body').html(); // <-- Get HTML of the body tag only
-
-        if (!bodyContent || bodyContent.trim().length === 0) {
-             throw new Error("Could not find the <body> content of the page.");
-        }
-
-        // --- Stage 3: AI Processing ---
+        // Stage 2: AI Processing with the "Surgical Strike" Prompt
+        // This new prompt is highly specific for dynamic sites.
         const prompt = `
-            You are an expert web scraping AI. Your task is to analyze the provided HTML body content and extract meaningful, structured data from it into a JSON format.
-            Focus on the main repeating elements on the page (like products, articles, videos, or listings).
+            You are a highly specialized web scraping AI. Your task is to analyze the provided raw HTML source code of a web page and extract a list of its primary content items (like videos, articles, products) into a structured JSON array.
 
-            For example, if it's a list of videos, extract title, channel, views, and URL for each.
-            If it's an e-commerce site, extract product name, price, and image URL.
+            CRITICAL INSTRUCTION: Do NOT just parse the visible HTML tags. Modern websites load data via JavaScript. Your primary strategy must be to find a large JSON object embedded within a <script> tag. This data is often assigned to a JavaScript variable, for example: "var ytInitialData = {...};" or "window.__PRELOADED_STATE__ = {...}". This is the most reliable source.
 
-            Your response MUST be ONLY the JSON data, without any explanations, introductory text, or markdown formatting like \`\`\`json.
-            If you cannot find any structured data, return an empty array [].
+            Search the ENTIRE HTML for a <script> tag containing a significant JSON structure that holds the page's main data. Parse that JSON to extract the relevant items.
 
-            Here is the HTML body content:
+            If you find a list of videos, extract fields like: "title", "videoId", "thumbnailUrl", "channelName", "viewCount", "publishedTimeText", and "videoUrl".
+            
+            Your response MUST be ONLY the JSON array data, without any surrounding text, explanations, or markdown formatting like \`\`\`json.
+            If you absolutely cannot find a pre-loaded data script or any other structured data, return an empty array [].
+
+            Here is the complete HTML source code:
             ---
-            ${bodyContent}
+            ${htmlContent}
             ---
         `;
-        sendStatus('Sending extracted content to AI for analysis...');
+        
+        sendStatus('Sending full HTML to AI for surgical analysis...');
         
         const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`;
         const geminiResponse = await axios.post(geminiApiUrl, {
@@ -88,11 +82,10 @@ app.get('/scrape', async (req, res) => {
             ]
         });
 
-        sendStatus('AI analysis complete. Processing final result...');
+        sendStatus('AI analysis complete. Formatting final result...');
         let aiResultText = geminiResponse.data.candidates[0].content.parts[0].text;
         aiResultText = aiResultText.replace(/```json/g, '').replace(/```/g, '').trim();
 
-        // --- Final Stage: Sending Result ---
         const finalJsonData = JSON.parse(aiResultText);
         const sseFormattedResult = `event: result\ndata: ${JSON.stringify(finalJsonData)}\n\n`;
         res.write(sseFormattedResult);
